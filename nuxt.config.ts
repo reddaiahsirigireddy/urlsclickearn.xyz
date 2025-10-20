@@ -1,6 +1,9 @@
 // File: nuxt.config.ts
 
 export default defineNuxtConfig({
+  // 👇 This makes Nuxt use the /app folder (so it finds your pages, layouts, etc.)
+  srcDir: 'app/',
+
   modules: [
     '@nuxthub/core',
     'shadcn-nuxt',
@@ -10,27 +13,15 @@ export default defineNuxtConfig({
     '@nuxtjs/color-mode',
   ],
 
-  // ✅ FIXED COMPONENTS SECTION
-  components: {
-    dirs: [
-      // Regular app components (non-UI)
-      { path: '~/app/components', pathPrefix: true, priority: 20, ignore: ['**/index.ts'] },
-
-      // ✅ Only load TypeScript exports from UI (avoid duplicate auto-import)
-      {
-        path: '~/app/components/ui',
-        pathPrefix: true,
-        extensions: ['ts'], // <-- only import from index.ts, skip .vue auto-import
-        priority: 20,
-      },
-
-      // Legacy components
-      { path: '~/components', pathPrefix: true, ignore: ['**/index.ts'] },
-
-      // Drawer override (if required)
-      { path: '~/components/ui/drawer', priority: 10 },
-    ],
-  },
+  components: [
+    // Application components (higher priority so app components override library ones)
+    { path: '~/app/components', pathPrefix: true, priority: 20, extensions: ['vue'], ignore: ['**/index.ts'] },
+    { path: '~/app/components/ui', pathPrefix: true, priority: 20, extensions: ['vue'], ignore: ['**/index.ts'] },
+    // Legacy top-level components folder
+    { path: '~/components', pathPrefix: true, extensions: ['vue'], ignore: ['**/index.ts'] },
+    // Specific drawer override (lower priority)
+    { path: '~/components/ui/drawer', priority: 10 },
+  ],
 
   devtools: { enabled: true },
   colorMode: { classSuffix: '' },
@@ -45,7 +36,7 @@ export default defineNuxtConfig({
     cfApiToken: '',
     dataset: 'Urlsclickearn',
     aiModel: '@cf/meta/llama-3.1-8b-instruct',
-    aiPrompt: `You are a URL shortening assistant, please shorten the URL provided by the user into a SLUG. The SLUG information must come from the URL itself, do not make any assumptions. A SLUG is human-readable and should not exceed three words and can be validated using regular expressions {slugRegex}. Only the best one is returned, the format must be JSON reference {"slug": "example-slug"}`,
+    aiPrompt: `You are a URL shortening assistant, please shorten the URL provided by the user into a SLUG. The SLUG information must come from the URL itself, do not make any assumptions. A SLUG is human-readable and should not exceed three words and can be validated using regular expressions {slugRegex} . Only the best one is returned, the format must be JSON reference {"slug": "example-slug"}`,
     caseSensitive: false,
     listQueryLimit: 500,
     disableBotAccessLog: false,
@@ -57,24 +48,21 @@ export default defineNuxtConfig({
     },
   },
 
-  // ✅ FIXED ROUTE RULES (disable prerender on `/`)
   routeRules: {
-    '/': { ssr: true }, // no prerender to avoid "includes undefined" crash
-    '/dashboard/**': { prerender: false, ssr: false },
+    '/': { prerender: false },
+    '/dashboard/**': { prerender: true, ssr: false },
     '/dashboard': { redirect: '/dashboard/links' },
     '/login': { redirect: '/auth/login' },
     '/signup': { redirect: '/auth/signup' },
-    'publicAssets': [{ baseURL: '/', dir: 'public' }],
+    'publicAssets': [
+      { baseURL: '/', dir: 'public' },
+    ],
   },
 
-  // ✅ FIXED NITRO CONFIG (ignore prerender errors)
   nitro: {
     preset: 'cloudflare-pages',
     experimental: {
       openAPI: false,
-    },
-    prerender: {
-      failOnError: false, // prevents Cloudflare build from failing on /_payload.json
     },
   },
 
@@ -93,7 +81,6 @@ export default defineNuxtConfig({
       target: 'esnext',
     },
     ssr: {
-      // Force bundling certain modules to avoid "class extends" errors
       noExternal: [
         'mime',
         'zod',
@@ -105,12 +92,17 @@ export default defineNuxtConfig({
         enforce: 'pre',
         apply: 'build',
         transform(code: string, id: string) {
-          if (!/node_modules[\\/].*mime.*dist[\\/].*Mime\.js/.test(id)) return null
+          if (!/node_modules[\\/].*mime.*dist[\\/].*Mime\.js/.test(id)) {
+            return null
+          }
           const fixed = code.replace(
             /\bthis\b/g,
-            '(typeof globalThis !== "undefined" ? globalThis : (typeof self !== "undefined" ? self : {}))'
+            '(typeof globalThis !== "undefined" ? globalThis : (typeof self !== "undefined" ? self : {}))',
           )
-          return { code: fixed, map: null }
+          return {
+            code: fixed,
+            map: null,
+          }
         },
       },
     ],
