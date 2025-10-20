@@ -1,7 +1,6 @@
 // File: nuxt.config.ts
 
 export default defineNuxtConfig({
-
   modules: [
     '@nuxthub/core',
     'shadcn-nuxt',
@@ -10,17 +9,32 @@ export default defineNuxtConfig({
     '@nuxtjs/tailwindcss',
     '@nuxtjs/color-mode',
   ],
-  components: [
-    // Application components (higher priority so app components override library ones)
-    { path: '~/app/components', pathPrefix: true, priority: 20, ignore: ['**/index.ts'] },
-    { path: '~/app/components/ui', pathPrefix: true, priority: 20 },
-    // Legacy top-level components folder
-    { path: '~/components', pathPrefix: true, ignore: ['**/index.ts'] },
-    // Specific drawer override (lower priority)
-    { path: '~/components/ui/drawer', priority: 10 },
-  ],
+
+  // ✅ FIXED COMPONENTS SECTION
+  components: {
+    dirs: [
+      // Regular app components (non-UI)
+      { path: '~/app/components', pathPrefix: true, priority: 20, ignore: ['**/index.ts'] },
+
+      // ✅ Only load TypeScript exports from UI (avoid double Vue auto-import)
+      {
+        path: '~/app/components/ui',
+        pathPrefix: true,
+        extensions: ['ts'], // <-- import only index.ts files, skip .vue
+        priority: 20,
+      },
+
+      // Legacy components (outside app/)
+      { path: '~/components', pathPrefix: true, ignore: ['**/index.ts'] },
+
+      // Drawer override if manually needed
+      { path: '~/components/ui/drawer', priority: 10 },
+    ],
+  },
+
   devtools: { enabled: true },
   colorMode: { classSuffix: '' },
+
   runtimeConfig: {
     siteToken: 'Urlsclickearn',
     redirectStatusCode: '301',
@@ -31,7 +45,7 @@ export default defineNuxtConfig({
     cfApiToken: '',
     dataset: 'Urlsclickearn',
     aiModel: '@cf/meta/llama-3.1-8b-instruct',
-    aiPrompt: `You are a URL shortening assistant, please shorten the URL provided by the user into a SLUG. The SLUG information must come from the URL itself, do not make any assumptions. A SLUG is human-readable and should not exceed three words and can be validated using regular expressions {slugRegex} . Only the best one is returned, the format must be JSON reference {"slug": "example-slug"}`,
+    aiPrompt: `You are a URL shortening assistant, please shorten the URL provided by the user into a SLUG. The SLUG information must come from the URL itself, do not make any assumptions. A SLUG is human-readable and should not exceed three words and can be validated using regular expressions {slugRegex}. Only the best one is returned, the format must be JSON reference {"slug": "example-slug"}`,
     caseSensitive: false,
     listQueryLimit: 500,
     disableBotAccessLog: false,
@@ -42,22 +56,23 @@ export default defineNuxtConfig({
       googleClientId: process.env.GOOGLE_CLIENT_ID || '',
     },
   },
+
   routeRules: {
     '/': { prerender: true },
     '/dashboard/**': { prerender: true, ssr: false },
     '/dashboard': { redirect: '/dashboard/links' },
     '/login': { redirect: '/auth/login' },
     '/signup': { redirect: '/auth/signup' },
-    'publicAssets': [
-      { baseURL: '/', dir: 'public' },
-    ],
+    'publicAssets': [{ baseURL: '/', dir: 'public' }],
   },
+
   nitro: {
     preset: 'cloudflare-pages',
     experimental: {
       openAPI: false,
     },
   },
+
   hub: {
     ai: true,
     analytics: true,
@@ -67,16 +82,16 @@ export default defineNuxtConfig({
     kv: true,
     workers: true,
   },
+
   vite: {
     build: {
       target: 'esnext',
     },
     ssr: {
-      // Force some packages to be not external, so they are bundled correctly
+      // Force bundling certain modules to avoid "class extends" errors
       noExternal: [
         'mime',
         'zod',
-        // add any other module you suspect might cause class extends errors
       ],
     },
     plugins: [
@@ -85,22 +100,16 @@ export default defineNuxtConfig({
         enforce: 'pre',
         apply: 'build',
         transform(code: string, id: string) {
-          if (!/node_modules[\\/].*mime.*dist[\\/].*Mime\.js/.test(id)) {
-            return null
-          }
+          if (!/node_modules[\\/].*mime.*dist[\\/].*Mime\.js/.test(id)) return null
           const fixed = code.replace(
             /\bthis\b/g,
-            '(typeof globalThis !== "undefined" ? globalThis : (typeof self !== "undefined" ? self : {}))',
+            '(typeof globalThis !== "undefined" ? globalThis : (typeof self !== "undefined" ? self : {}))'
           )
-          return {
-            code: fixed,
-            map: null,
-          }
+          return { code: fixed, map: null }
         },
       },
     ],
     vue: {
-      // Only process .vue files as Vue SFCs. Avoid processing .ts files (schemas, utils)
       include: [/\.vue$/],
       exclude: [
         /middleware\/.*\.ts$/,
@@ -108,7 +117,7 @@ export default defineNuxtConfig({
         /app\.config\.ts$/,
         /utils\/.*\.ts$/,
         /composables\/.*\.ts$/,
-        /components\/.*\.ts$/, // Exclude all .ts files in components
+        /components\/.*\.ts$/,
       ],
       script: {
         defineModel: true,
@@ -118,12 +127,14 @@ export default defineNuxtConfig({
       },
     },
   },
+
   eslint: {
     config: {
       stylistic: true,
       standalone: false,
     },
   },
+
   shadcn: {
     prefix: '',
     componentDir: './app/components/ui',
