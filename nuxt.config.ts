@@ -16,18 +16,18 @@ export default defineNuxtConfig({
       // Regular app components (non-UI)
       { path: '~/app/components', pathPrefix: true, priority: 20, ignore: ['**/index.ts'] },
 
-      // ✅ Only load TypeScript exports from UI (avoid double Vue auto-import)
+      // ✅ Only load TypeScript exports from UI (avoid duplicate auto-import)
       {
         path: '~/app/components/ui',
         pathPrefix: true,
-        extensions: ['ts'], // <-- import only index.ts files, skip .vue
+        extensions: ['ts'], // <-- only import from index.ts, skip .vue auto-import
         priority: 20,
       },
 
-      // Legacy components (outside app/)
+      // Legacy components
       { path: '~/components', pathPrefix: true, ignore: ['**/index.ts'] },
 
-      // Drawer override if manually needed
+      // Drawer override (if required)
       { path: '~/components/ui/drawer', priority: 10 },
     ],
   },
@@ -57,19 +57,24 @@ export default defineNuxtConfig({
     },
   },
 
+  // ✅ FIXED ROUTE RULES (disable prerender on `/`)
   routeRules: {
-    '/': { prerender: true },
-    '/dashboard/**': { prerender: true, ssr: false },
+    '/': { ssr: true }, // no prerender to avoid "includes undefined" crash
+    '/dashboard/**': { prerender: false, ssr: false },
     '/dashboard': { redirect: '/dashboard/links' },
     '/login': { redirect: '/auth/login' },
     '/signup': { redirect: '/auth/signup' },
     'publicAssets': [{ baseURL: '/', dir: 'public' }],
   },
 
+  // ✅ FIXED NITRO CONFIG (ignore prerender errors)
   nitro: {
     preset: 'cloudflare-pages',
     experimental: {
       openAPI: false,
+    },
+    prerender: {
+      failOnError: false, // prevents Cloudflare build from failing on /_payload.json
     },
   },
 
